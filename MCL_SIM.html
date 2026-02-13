@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhaleLib MCL | Team 3142C</title>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --panel-bg: #18181b;
+            --border: #27272a;
+            --text-main: #e4e4e7;
+            --text-muted: #a1a1aa;
+            
+            /* Team 3142C Pink Gradient */
+            --accent-start: #FF2D8D; 
+            --accent-end: #FF4FB3;
+            --accent-solid: #FF2D8D;
+            --accent-glow: rgba(255, 45, 141, 0.3);
+            
+            --true-color: #0ea5e9; /* Blue */
+            --odom-color: #a1a1aa; /* Ghost White */
+            --gps-color: #22c55e; /* Green */
+            
+            --font-mono: 'JetBrains Mono', 'Menlo', 'Courier New', monospace;
+            --font-sans: system-ui, -apple-system, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+        }
+
+        /* --- Layout --- */
+        #viewport {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+        }
+
+        #sidebar {
+            width: 420px;
+            background: var(--bg-color);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 1rem;
+            gap: 1.25rem;
+            z-index: 10;
+        }
+
+        /* --- Typography --- */
+        h1 { 
+            font-size: 1.5rem; 
+            font-weight: 800; 
+            letter-spacing: -0.03em; 
+            margin-bottom: 0.25rem; 
+            background: linear-gradient(to right, var(--accent-start), var(--accent-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        h2 { 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            color: var(--text-muted); 
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.25rem;
+        }
+
+        .brand-subtitle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .team-badge {
+            background: var(--accent-solid);
+            color: #fff;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 2px;
+        }
+
+        /* --- Components --- */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 0.4rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+
+        .data-label { color: var(--text-muted); }
+        .data-value { text-align: right; color: var(--accent-solid); }
+        .data-value.neutral { color: var(--text-main); }
+
+        /* --- Confidence Meter --- */
+        .confidence-container {
+            margin-top: 5px;
+            background: #27272a;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .confidence-bar {
+            height: 100%;
+            background: linear-gradient(to right, #ef4444, #eab308, #22c55e);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        /* --- Toggles --- */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 32px;
+            height: 18px;
+            background: var(--border);
+            border-radius: 9px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .toggle-switch.active { background: var(--accent-solid); }
+        .toggle-knob {
+            position: absolute;
+            left: 2px; top: 2px;
+            width: 14px; height: 14px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .toggle-switch.active .toggle-knob { left: 16px; }
+
+        /* --- Buttons --- */
+        .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        
+        button {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            flex: 1;
+            transition: all 0.2s;
+        }
+        button:hover { border-color: var(--text-muted); }
+        
+        button.active-ap {
+            background: var(--accent-solid);
+            color: white;
+            border-color: var(--accent-solid);
+            box-shadow: 0 0 15px var(--accent-glow);
+            animation: pulse 2s infinite;
+        }
+        button.danger:hover { background: #ef4444; border-color: #ef4444; color: white; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+            70% { box-shadow: 0 0 10px 4px rgba(0,0,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+        }
+
+        /* --- Legend --- */
+        .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; margin-bottom: 0.3rem; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .line { width: 15px; height: 2px; }
+
+        /* --- Narration --- */
+        #narration-box {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: var(--text-muted);
+            min-height: 3.5em;
+        }
+        .highlight { color: var(--accent-solid); }
+
+    </style>
+</head>
+<body>
+
+    <div id="viewport">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div id="sidebar">
+        <div>
+            <h1>WhaleLib MCL</h1>
+            <div class="brand-subtitle">
+                <span class="team-badge">3142C</span>
+                <span>Localization Architecture</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>MCL Confidence</h2>
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
+                <span style="color:var(--text-muted)">Reliability</span>
+                <span id="conf-val">0%</span>
+            </div>
+            <div class="confidence-container">
+                <div id="conf-bar" class="confidence-bar"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Layer Visibility</h2>
+            <div class="toggle-row" onclick="toggleLayer('trueRobot')">
+                <span style="color: var(--true-color)">True Pose (Ground Truth)</span>
+                <div class="toggle-switch active" id="tog-trueRobot"><div class="toggle-knob"></div></div>
+            </div>
+            <div class="toggle-row" onclick="toggleLayer('mcl')">
+                <span style="color: var(--accent-solid)">MCL Estimate (Fused)</span>
+                <div class="toggle-switch active" id="tog-mcl"><div class="toggle-knob"></div></div>
+            </div>
+            <div class="toggle-row" onclick="toggleLayer('odom')">
+                <span style="color: var(--odom-color)">Odometry (Drifting)</span>
+                <!-- DEFAULT OFF -->
+                <div class="toggle-switch" id="tog-odom"><div class="toggle-knob"></div></div>
+            </div>
+            <div class="toggle-row" onclick="toggleLayer('gps')">
+                <span style="color: var(--gps-color)">GPS Sensor (Noisy)</span>
+                <!-- DEFAULT OFF -->
+                <div class="toggle-switch" id="tog-gps"><div class="toggle-knob"></div></div>
+            </div>
+            <div class="toggle-row" onclick="toggleLayer('particles')">
+                <span style="color: rgba(255, 45, 141, 0.7)">Particle Cloud</span>
+                <div class="toggle-switch active" id="tog-particles"><div class="toggle-knob"></div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>System Telemetry</h2>
+            <div class="data-grid">
+                <span class="data-label">Filter State</span>
+                <span class="data-value" id="status-text">INIT</span>
+                
+                <span class="data-label">MCL Pose</span>
+                <span class="data-value" style="color: var(--accent-solid)" id="est-pose">0, 0</span>
+                
+                <span class="data-label">Odom Pose</span>
+                <span class="data-value" style="color: var(--odom-color)" id="odom-pose">0, 0</span>
+
+                <span class="data-label">Abs Error</span>
+                <span class="data-value" id="pos-err">0.0 in</span>
+
+                <span class="data-label">N_eff / Total</span>
+                <span class="data-value neutral" id="neff-val">0 / 0</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Algorithm Step</h2>
+            <div id="narration-box">Waiting for system start...</div>
+        </div>
+
+        <div class="panel">
+            <h2>Controls</h2>
+            <div class="btn-group">
+                <button id="btn-auto">Autopilot</button>
+                <button id="btn-kidnap">Kidnap</button>
+                <button class="danger" id="btn-reset">Reset</button>
+            </div>
+            <div style="margin-top:10px; font-size:0.7rem; color:var(--text-muted); text-align:center;">
+                WASD to Drive Manual
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * WhaleLib MCL Simulator - Team 3142C
+ * Implementation: 2D Particle Filter with IMU-Heading Lock
+ */
+
+// --- Constants ---
+const FIELD_SIZE = 144; // inches
+const PX_PER_INCH = 5;
+const ROBOT_SIZE = 16; 
+
+// Sensor Config (Relative to Robot Center - Centered on sides)
+// X+ is Front, Y+ is Left
+const SENSORS = [
+    { x: 0, y: 0, th: 0, label: "F" },       // Front Center
+    { x: 0, y: 0, th: Math.PI, label: "B" }, // Back Center
+    { x: 0, y: 0, th: Math.PI/2, label: "L" }, // Left Center
+    { x: 0, y: 0, th: -Math.PI/2, label: "R" }   // Right Center
+];
+// Adjusting sensor origin to be exactly on the perimeter for rays
+const SENSOR_OFFSET = 8; // Robot is 16x16, so 8 inches from center
+
+// --- Math Utils ---
+const normalize = (angle) => {
+    while (angle > Math.PI) angle -= 2*Math.PI;
+    while (angle < -Math.PI) angle += 2*Math.PI;
+    return angle;
+};
+
+// Box-Muller Gaussian
+const gaussian = (mean, std) => {
+    if (std <= 0) return mean;
+    let u = 0, v = 0;
+    while(u===0) u = Math.random(); 
+    while(v===0) v = Math.random();
+    return mean + std * Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+};
+
+// --- System State ---
+const layers = {
+    trueRobot: true,
+    mcl: true,
+    odom: false, // Default OFF
+    gps: false,  // Default OFF
+    particles: true
+};
+
+const params = {
+    particles: 600,
+    sensorSigma: 1.5, // TIGHT TOLERANCE for locking in
+    distSigmaScale: 0.02, 
+    // [trans-trans, trans-rot, rot-trans, rot-rot]
+    // Exaggerated drift to ensure >12" error over route
+    odomAlpha: [0.25, 0.05, 0.05, 0.05], 
+    gpsNoise: 12.0, 
+    kidnapThreshold: 1e-10 
+};
+
+// --- Classes ---
+
+class Robot {
+    constructor(x, y, th) {
+        this.truePose = { x, y, theta: th };
+        this.odomPose = { x, y, theta: th }; // Drifts in X/Y, Stable in Theta
+        this.gpsPose = { x, y }; 
+        this.imuBias = 0; // Slowly walking bias for IMU
+        
+        this.v = 0;
+        this.omega = 0;
+    }
+
+    update(dt) {
+        // 1. Move True Robot (Physics)
+        const dx = this.v * Math.cos(this.truePose.theta) * dt;
+        const dy = this.v * Math.sin(this.truePose.theta) * dt;
+        const dth = this.omega * dt;
+
+        this.truePose.x += dx;
+        this.truePose.y += dy;
+        this.truePose.theta = normalize(this.truePose.theta + dth);
+
+        // Clamp True Robot to Field
+        this.truePose.x = Math.max(8, Math.min(FIELD_SIZE-8, this.truePose.x));
+        this.truePose.y = Math.max(8, Math.min(FIELD_SIZE-8, this.truePose.y));
+
+        // 2. Update Odom (Simulating IMU + Wheel Encoders)
+        
+        // A. Translation: Wheel Odometry (Drifts significantly)
+        const transDist = Math.abs(this.v * dt);
+        const rotDist = Math.abs(this.omega * dt);
+        
+        // Alpha model for translation noise (Slip)
+        const sdTrans = params.odomAlpha[0]*transDist + params.odomAlpha[1]*rotDist;
+        
+        // Systematic drift (scale error) + Random noise to guarantee separation
+        const driftScale = 1.05; // 5% systematic scale error
+        const noisyDist = (this.v * dt * driftScale) + gaussian(0, sdTrans); 
+
+        // B. Rotation: IMU (ASSUME 0 DRIFT)
+        // We set bias to 0 so IMU is effectively perfect, as requested
+        this.imuBias = 0; 
+        const imuTheta = normalize(this.truePose.theta + this.imuBias);
+        const dTheta = normalize(imuTheta - this.odomPose.theta); // Calculate ACTUAL change in IMU heading
+
+        // Integrate Position using NOISY distance but GOOD Heading
+        this.odomPose.theta = imuTheta;
+        this.odomPose.x += noisyDist * Math.cos(this.odomPose.theta);
+        this.odomPose.y += noisyDist * Math.sin(this.odomPose.theta);
+
+        // 3. Update GPS (Low frequency noise)
+        if (Math.random() < 0.1) { 
+            this.gpsPose.x = this.truePose.x + gaussian(0, params.gpsNoise);
+            this.gpsPose.y = this.truePose.y + gaussian(0, params.gpsNoise);
+        }
+
+        // Return actual changes for PF to consume
+        return { dx: noisyDist, dth: dTheta }; 
+    }
+
+    // Get Raycast Distances from TRUE pose
+    getSensors() {
+        return SENSORS.map(s => {
+            const cx = Math.cos(this.truePose.theta);
+            const cy = Math.sin(this.truePose.theta);
+            // Sensor mounted on side (offset by robot radius)
+            const lx = s.x + (s.th === 0 ? SENSOR_OFFSET : (s.th === Math.PI ? -SENSOR_OFFSET : 0));
+            const ly = s.y + (s.th === Math.PI/2 ? SENSOR_OFFSET : (s.th === -Math.PI/2 ? -SENSOR_OFFSET : 0));
+
+            const wx = this.truePose.x + lx*cx - ly*cy;
+            const wy = this.truePose.y + lx*cy + ly*cx;
+            const wth = normalize(this.truePose.theta + s.th);
+            
+            return castRay(wx, wy, wth);
+        });
+    }
+}
+
+class ParticleFilter {
+    constructor(count) {
+        this.count = count;
+        this.particles = [];
+        this.estPose = { x: 0, y: 0, theta: 0 };
+        this.confidence = 0;
+        this.initUniform();
+        this.weightSum = 0;
+        this.state = "INIT";
+    }
+
+    initUniform() {
+        this.particles = [];
+        for(let i=0; i<this.count; i++) {
+            this.particles.push({
+                x: Math.random() * FIELD_SIZE,
+                y: Math.random() * FIELD_SIZE,
+                theta: 0, 
+                w: 1/this.count
+            });
+        }
+    }
+
+    // 1. PREDICT
+    predict(odomDeltaDist, odomDeltaTh, currentOdomTheta) {
+        // Base noise only applies if moving translationally
+        // Prevents particles spreading when stationary
+        let sigmaTrans = 0;
+        if(Math.abs(odomDeltaDist) > 0.001) {
+             sigmaTrans = params.odomAlpha[0] * Math.abs(odomDeltaDist) * 2.0 + 0.15;
+        }
+        
+        for(let p of this.particles) {
+            let nForward = odomDeltaDist;
+            let nRight = 0;
+
+            // Only add jitter noise if moving
+            if(sigmaTrans > 0) {
+                nForward += gaussian(0, sigmaTrans);
+                nRight += gaussian(0, sigmaTrans); 
+            }
+            
+            const c = Math.cos(p.theta);
+            const s = Math.sin(p.theta);
+            
+            p.x += nForward * c + nRight * s; 
+            p.y += nForward * s - nRight * c; 
+            
+            // Lock Theta to IMU (Odom) per requirement
+            p.theta = currentOdomTheta; 
+        }
+        this.state = "PREDICT";
+        this.calcStats(); // IMMEDIATE UPDATE: Est follows IMU even without sensor steps
+    }
+
+    // 2. UPDATE
+    update(measurements, walls) {
+        this.weightSum = 0;
+        const wUnexpected = 0.03; 
+        
+        for(let p of this.particles) {
+            let logLikelihood = 0;
+            let inBounds = (p.x > 0 && p.x < FIELD_SIZE && p.y > 0 && p.y < FIELD_SIZE);
+
+            if (!inBounds) {
+                p.w = 0;
+                continue;
+            }
+
+            for(let i=0; i<SENSORS.length; i++) {
+                const meas = measurements[i];
+                if(meas === null) continue; 
+
+                // Transform sensor to particle world
+                const s = SENSORS[i];
+                const cx = Math.cos(p.theta);
+                const cy = Math.sin(p.theta);
+                
+                const lx = s.x + (s.th === 0 ? SENSOR_OFFSET : (s.th === Math.PI ? -SENSOR_OFFSET : 0));
+                const ly = s.y + (s.th === Math.PI/2 ? SENSOR_OFFSET : (s.th === -Math.PI/2 ? -SENSOR_OFFSET : 0));
+
+                const wx = p.x + lx*cx - ly*cy;
+                const wy = p.y + lx*cy + ly*cx;
+                const wth = normalize(p.theta + s.th);
+
+                const expected = castRay(wx, wy, wth);
+                
+                // Likelihood
+                const sigma = params.sensorSigma + params.distSigmaScale * meas;
+                const diff = meas - expected;
+                
+                const gauss = Math.exp(-0.5 * (diff*diff)/(sigma*sigma));
+                const uniform = 1.0 / 144.0; 
+
+                const prob = (1 - wUnexpected) * gauss + wUnexpected * uniform;
+                logLikelihood += Math.log(prob + 1e-20);
+            }
+            
+            p.w = Math.exp(logLikelihood);
+            this.weightSum += p.w;
+        }
+
+        if(this.weightSum < params.kidnapThreshold) {
+            this.state = "LOST";
+            this.recover(); 
+        } else {
+            for(let p of this.particles) p.w /= this.weightSum;
+            this.state = "UPDATE";
+        }
+        
+        this.calcStats();
+    }
+
+    // 3. RECOVER
+    recover() {
+        for(let i=0; i<100; i++) {
+            const idx = Math.floor(Math.random() * this.count);
+            this.particles[idx] = {
+                x: Math.random() * FIELD_SIZE,
+                y: Math.random() * FIELD_SIZE,
+                theta: 0,
+                w: 1/this.count
+            };
+        }
+    }
+
+    // 4. RESAMPLE
+    resample() {
+        let sqSum = 0;
+        for(let p of this.particles) sqSum += p.w * p.w;
+        const neff = 1/sqSum;
+        
+        document.getElementById('neff-val').innerText = `${Math.floor(neff)} / ${this.count}`;
+
+        if(neff < this.count * 0.75) {
+            this.state = "RESAMPLE";
+            const newP = [];
+            const step = 1/this.count;
+            let r = Math.random() * step;
+            let c = this.particles[0].w;
+            let i = 0;
+
+            for(let m=0; m<this.count; m++) {
+                const U = r + m*step;
+                while(U > c && i < this.count-1) {
+                    i++;
+                    c += this.particles[i].w;
+                }
+                const p = this.particles[i];
+                newP.push({
+                    x: p.x + gaussian(0, 0.5),
+                    y: p.y + gaussian(0, 0.5),
+                    theta: p.theta,
+                    w: 1/this.count
+                });
+            }
+            this.particles = newP;
+            return true;
+        }
+        return false;
+    }
+
+    calcStats() {
+        let x=0, y=0, varX=0, varY=0;
+        
+        for(let p of this.particles) {
+            x += p.x * p.w;
+            y += p.y * p.w;
+        }
+        this.estPose.x = x;
+        this.estPose.y = y;
+        if (this.particles.length > 0) this.estPose.theta = this.particles[0].theta;
+        
+        for(let p of this.particles) {
+            varX += p.w * (p.x - x)**2;
+            varY += p.w * (p.y - y)**2;
+        }
+        
+        const totalVar = varX + varY;
+        this.confidence = 1 / (1 + totalVar * 0.2); 
+        this.confidence = Math.min(1, Math.max(0, this.confidence));
+    }
+}
+
+// --- Raycasting (AABB) ---
+function castRay(ox, oy, th) {
+    const dx = Math.cos(th);
+    const dy = Math.sin(th);
+    let minT = 200; 
+
+    if(Math.abs(dx) > 1e-6) {
+        let t = (0 - ox) / dx;
+        let y = oy + t*dy;
+        if(t>0 && t<minT && y>=0 && y<=144) minT = t;
+        
+        t = (144 - ox) / dx;
+        y = oy + t*dy;
+        if(t>0 && t<minT && y>=0 && y<=144) minT = t;
+    }
+    if(Math.abs(dy) > 1e-6) {
+        let t = (0 - oy) / dy;
+        let x = ox + t*dx;
+        if(t>0 && t<minT && x>=0 && x<=144) minT = t;
+
+        t = (144 - oy) / dy;
+        x = ox + t*dx;
+        if(t>0 && t<minT && x>=0 && x<=144) minT = t;
+    }
+    return minT < 200 ? minT : null;
+}
+
+// --- Simulation Loop ---
+
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+let robot = new Robot(72, 72, 0);
+let mcl = new ParticleFilter(params.particles);
+let lastTime = 0;
+let autopilot = false;
+let apIdx = 0;
+let currentRouteIdx = 0;
+
+// Dynamic Routes List
+const routes = [
+    // 1. Butterfly / Figure 8
+    [{x:72, y:72}, {x:24, y:120}, {x:24, y:24}, {x:120, y:24}, {x:120, y:120}],
+    // 2. Perimeter Scan (Box)
+    [{x:20, y:20}, {x:124, y:20}, {x:124, y:124}, {x:20, y:124}, {x:20, y:20}],
+    // 3. Zig Zag
+    [{x:20, y:20}, {x:60, y:124}, {x:100, y:20}, {x:124, y:124}, {x:72, y:72}],
+    // 4. Spiral In
+    [{x:120, y:120}, {x:120, y:24}, {x:24, y:24}, {x:24, y:100}, {x:100, y:100}, {x:100, y:44}, {x:44, y:44}, {x:72, y:72}]
+];
+
+const uiConfBar = document.getElementById('conf-bar');
+const uiConfVal = document.getElementById('conf-val');
+const uiEst = document.getElementById('est-pose');
+const uiOdom = document.getElementById('odom-pose');
+const uiErr = document.getElementById('pos-err');
+const uiStatus = document.getElementById('status-text');
+const uiNarration = document.getElementById('narration-box');
+
+function resize() {
+    const d = Math.min(window.innerWidth - 440, window.innerHeight - 40);
+    canvas.width = d;
+    canvas.height = d;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function loop(timestamp) {
+    if(!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime)/1000, 0.1);
+    lastTime = timestamp;
+
+    updateSim(dt);
+    draw();
+    updateUI();
+    requestAnimationFrame(loop);
+}
+
+function updateSim(dt) {
+    if(autopilot) {
+        const currentRoute = routes[currentRouteIdx];
+        const wp = currentRoute[apIdx];
+        const dx = wp.x - robot.truePose.x;
+        const dy = wp.y - robot.truePose.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const targetTh = Math.atan2(dy, dx);
+        let errTh = normalize(targetTh - robot.truePose.theta);
+        
+        // Waypoint Logic
+        if(dist < 10) {
+            apIdx++;
+            if (apIdx >= currentRoute.length) {
+                // Route Complete, switch to next
+                apIdx = 0;
+                currentRouteIdx = (currentRouteIdx + 1) % routes.length;
+            }
+        } 
+        
+        robot.omega = errTh * 6.0;
+        robot.v = 60 * Math.max(0.1, 1 - Math.abs(errTh)/2);
+    }
+
+    const odomDelta = robot.update(dt);
+
+    // Call predict every frame so Theta updates with IMU even if stationary
+    // The predict() function handles checking if translation happened before adding X/Y noise
+    mcl.predict(odomDelta.dx, odomDelta.dth, robot.odomPose.theta);
+    
+    // Updated threshold to include rotation delta, so sensors update on spin
+    if(Math.abs(odomDelta.dx) > 0.05 || Math.abs(odomDelta.dth) > 0.005) {
+        const sensors = robot.getSensors();
+        mcl.update(sensors, []);
+    }
+
+    const didResample = mcl.resample();
+
+    if(mcl.state === "LOST") {
+        uiNarration.innerHTML = "<span class='highlight'>LOST!</span> Weight sum low. Injecting random particles.";
+    } else if(didResample) {
+        uiNarration.innerHTML = "<span class='highlight'>RESAMPLING:</span> N_eff low. Focusing on best particles.";
+    } else {
+        uiNarration.innerHTML = "Tracking... Fusing Odom + Dist Sensors.";
+    }
+}
+
+function transform(x, y) {
+    const s = canvas.width / FIELD_SIZE;
+    return {
+        x: x * s,
+        y: canvas.height - (y * s),
+        s: s
+    };
+}
+
+function draw() {
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const t0 = transform(0,0);
+    const s = t0.s;
+    ctx.strokeStyle = '#27272a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for(let i=0; i<=FIELD_SIZE; i+=24) {
+        const p1 = transform(i, 0); const p2 = transform(i, FIELD_SIZE);
+        ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+        const p3 = transform(0, i); const p4 = transform(FIELD_SIZE, i);
+        ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = '#52525b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+    if(layers.particles) {
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent-solid');
+        ctx.globalAlpha = 0.4;
+        for(let p of mcl.particles) {
+            const pt = transform(p.x, p.y);
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 2, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+    }
+
+    if(layers.odom) {
+        drawRobot(robot.odomPose, '#a1a1aa', false, 0.5);
+    }
+
+    if(layers.gps) {
+        const pt = transform(robot.gpsPose.x, robot.gpsPose.y);
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pt.x-5, pt.y); ctx.lineTo(pt.x+5, pt.y);
+        ctx.moveTo(pt.x, pt.y-5); ctx.lineTo(pt.x, pt.y+5);
+        ctx.stroke();
+    }
+
+    if(layers.mcl) {
+        drawRobot(mcl.estPose, '#FF2D8D', true, 0.8);
+    }
+
+    if(layers.trueRobot) {
+        drawRobot(robot.truePose, '#0ea5e9', true, 1.0);
+        
+        // --- SENSOR RAY VISUALIZATION (Confidence Gradient) ---
+        const sensors = robot.getSensors(); 
+        
+        SENSORS.forEach((s, idx) => {
+            const dist = sensors[idx];
+            if (dist === null) return;
+
+            const cx = Math.cos(robot.truePose.theta);
+            const cy = Math.sin(robot.truePose.theta);
+            const lx = s.x + (s.th === 0 ? SENSOR_OFFSET : (s.th === Math.PI ? -SENSOR_OFFSET : 0));
+            const ly = s.y + (s.th === Math.PI/2 ? SENSOR_OFFSET : (s.th === -Math.PI/2 ? -SENSOR_OFFSET : 0));
+
+            const wx = robot.truePose.x + lx*cx - ly*cy;
+            const wy = robot.truePose.y + lx*cy + ly*cx;
+            const wth = normalize(robot.truePose.theta + s.th);
+
+            const hitX = wx + dist * Math.cos(wth);
+            const hitY = wy + dist * Math.sin(wth);
+
+            const p1 = transform(wx, wy);
+            const p2 = transform(hitX, hitY);
+            
+            // Gradient Logic for Confidence (Fades out over distance)
+            const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            const alphaEnd = Math.max(0.1, 1.0 - (dist / 60)); 
+
+            grad.addColorStop(0, `rgba(239, 68, 68, 1.0)`);
+            grad.addColorStop(1, `rgba(239, 68, 68, ${alphaEnd})`);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 2; 
+            ctx.stroke();
+
+            // Hit Dot
+            ctx.beginPath();
+            ctx.arc(p2.x, p2.y, 3, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(239, 68, 68, ${alphaEnd + 0.2})`; 
+            ctx.fill();
+        });
+    }
+}
+
+function drawRobot(pose, color, fill, alpha) {
+    const pt = transform(pose.x, pose.y);
+    const s = pt.s;
+    const rw = ROBOT_SIZE * s;
+    
+    ctx.save();
+    ctx.translate(pt.x, pt.y);
+    ctx.rotate(-pose.theta); 
+    
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    
+    if(fill) {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.2;
+        ctx.fillRect(-rw/2, -rw/2, rw, rw);
+        ctx.globalAlpha = alpha;
+    }
+    
+    ctx.strokeRect(-rw/2, -rw/2, rw, rw);
+    
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(rw/2, 0);
+    ctx.stroke();
+    
+    ctx.restore();
+}
+
+function updateUI() {
+    const confPct = Math.round(mcl.confidence * 100);
+    uiConfVal.innerText = `${confPct}%`;
+    uiConfBar.style.width = `${confPct}%`;
+    
+    uiStatus.innerText = mcl.state;
+    uiEst.innerText = `${mcl.estPose.x.toFixed(1)}, ${mcl.estPose.y.toFixed(1)}`;
+    uiOdom.innerText = `${robot.odomPose.x.toFixed(1)}, ${robot.odomPose.y.toFixed(1)}`;
+    
+    const err = Math.hypot(robot.truePose.x - mcl.estPose.x, robot.truePose.y - mcl.estPose.y);
+    uiErr.innerText = `${err.toFixed(1)} in`;
+}
+
+// --- Controls ---
+const toggleLayer = (key) => {
+    layers[key] = !layers[key];
+    const el = document.getElementById(`tog-${key}`);
+    if(layers[key]) el.classList.add('active');
+    else el.classList.remove('active');
+};
+
+document.getElementById('btn-auto').onclick = (e) => {
+    autopilot = !autopilot;
+    e.target.classList.toggle('active-ap');
+};
+
+document.getElementById('btn-reset').onclick = () => {
+    robot = new Robot(72, 72, 0);
+    mcl = new ParticleFilter(params.particles);
+    autopilot = false;
+    apIdx = 0;
+    currentRouteIdx = 0;
+    document.getElementById('btn-auto').classList.remove('active-ap');
+};
+
+document.getElementById('btn-kidnap').onclick = () => {
+    robot.truePose.x = 24 + Math.random() * 96;
+    robot.truePose.y = 24 + Math.random() * 96;
+};
+
+// Keyboard
+window.addEventListener('keydown', e => {
+    if(e.key === 'w') { robot.v = 60; autopilot = false; }
+    if(e.key === 's') { robot.v = -60; autopilot = false; }
+    if(e.key === 'a') { robot.omega = 3.0; autopilot = false; }
+    if(e.key === 'd') { robot.omega = -3.0; autopilot = false; }
+    if(e.key === ' ') { robot.v = 0; robot.omega = 0; autopilot = false; }
+    if(!autopilot) document.getElementById('btn-auto').classList.remove('active-ap');
+});
+window.addEventListener('keyup', e => {
+    if(['w','s'].includes(e.key)) robot.v = 0;
+    if(['a','d'].includes(e.key)) robot.omega = 0;
+});
+
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
